@@ -46,6 +46,48 @@ return function (App $app) {
 
     });
 
+    // user login for get token
+    $app->post('/login', function (Request $request, Response $response) {
+
+        // รับค่าจาก client
+        $body = $this->request->getparsedBody();
+        $password = sha1($body['password']);
+
+        // sql
+        $sql = "SELECT * FROM users WHERE email=:email AND password=:password";
+        $stm = $this->db->prepare($sql);
+        $stm->bindParam(':email', $body['email']);
+        $stm->bindParam(':password', $password);
+        $stm->execute();
+
+        // count row
+        $count = $stm->rowCount();
+
+        if($count){
+            $user = $stm->fetchObject();
+            $settings = $this->get('settings');
+            $payload = array(
+                'id' => $user->id,
+                'email' => $user->email,
+                'iat' => time(),
+                'exp' => time() + (60 * 60) // 1 hour
+            );
+            $token = JWT::encode(
+                $payload, 
+                $settings['jwt']['secret'], 
+                "HS256"
+            );
+            return $this->response->withJson([
+                'status' => 'success', 
+                'token' => $token
+            ]);
+
+        }else{
+            return $this->response->withJson(['status' => 'fail']);
+        }
+        
+    });
+
     
     // route group for api version 1
     $app->group('/api/v1', function () use ($app){
